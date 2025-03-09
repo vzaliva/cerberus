@@ -46,7 +46,7 @@ Qed.
      Control.throw (Tactic_failure (Some (Message.of_string "Term is not an application (and thus not a P)")))
  end.
   
- Ltac2 res_set_remove_step () :=
+ Ltac2 res_set_remove_one_step () :=
    match! goal with
    | [ |- exists upred,
        ResSet.Equal (ResSet.add (P upred, ?out) (set_from_list ?out_res)) (set_from_list ?in_res) /\ subsumed _ (Predicate.name upred) ] =>
@@ -76,24 +76,8 @@ Qed.
          Control.focus 1 1 (fun () => Std.constructor false; Std.reflexivity ())
      | [] =>
          Control.throw (Tactic_failure (Some (Message.of_string "No resource change between the input and output")))
-         (* 
-         Message.print (Message.of_string "Warning: No resource change between the input and output");
-         Control.shelve ()
-         *)
      | _ =>
-         (* Control.throw (Tactic_failure (Some (Message.of_string "More than one resource change between the input and output"))); *)
-         let n := List.length diff in
-         let msg := Message.concat (Message.of_string "Warning: multiple resources changed: ") (Message.of_int n) in
-         Message.print msg;
-         (if verbose then
-            verbose_print_constr "Combined output" out ;
-            (* Print changed resources: *)
-            let print_resource res :=
-              Message.print (Message.of_constr res)
-            in
-            List.iter print_resource diff
-          else ());
-         Control.shelve ()
+         Control.throw (Tactic_failure (Some (Message.of_string "More than one resource change between the input and output")))
      end
  end.
 
@@ -112,12 +96,36 @@ Ltac2 prove_unfold_step () :=
   end.
 
  Ltac2 prove_log_entry_valid () :=
-   match! goal with
-   | [ |- log_entry_valid (ResourceInferenceStep _ (PredicateRequest _ ?p _ _) _) ] =>
+  match! goal with
+  | [ |- log_entry_valid (ResourceInferenceStep _ (PredicateRequest _ 
+      {| 
+        Predicate.name := Request.Owned (SCtypes.Struct ?isym) ?iinit;
+        Predicate.pointer := ?ipointer; Predicate.iargs := ?iargs 
+      |}
+      _ _) _) ] =>
        (* PredicateRequest case *)
-       verbose_print "Checking PredicateRequest";
+       verbose_print "Checking PredicateRequest for Struct";
+       verbose_print_constr "    Predicate symbol name: " isym;
+       Std.constructor_n false 2 NoBindings; (* apply struct_resource_inference_step *)
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => 
+        verbose_print "TODO: Shelving 1 PredicateRequest premise for Struct";
+        Control.shelve ()
+       )
+  | [ |- log_entry_valid (ResourceInferenceStep _ (PredicateRequest _ ?p _ _) _) ] =>
+       (* PredicateRequest case *)
+       verbose_print "Checking PredicateRequest for non-struct";
        verbose_print_constr "    Predicate: " p;
        Std.constructor false;
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
+       Control.focus 1 1 (fun () => Std.reflexivity ());
        Control.focus 1 1 (fun () => Std.reflexivity ());
        Control.focus 1 1 (fun () => Std.reflexivity ());
        Control.focus 1 1 (fun () => Std.reflexivity ());
@@ -135,9 +143,9 @@ Ltac2 prove_unfold_step () :=
              rDelta := true;
              rConst := [const_to_const_reference  constr:(@set_from_list)]
            } clause ;
-         res_set_remove_step ()
+         res_set_remove_one_step ()
        )
-   | [ |- log_entry_valid (ResourceInferenceStep _ (UnfoldResources _) _) ] =>
+  | [ |- log_entry_valid (ResourceInferenceStep _ (UnfoldResources _) _) ] =>
       (* UnfoldResources case *)
       verbose_print "Checking UnfoldResources";
       Std.constructor false;
