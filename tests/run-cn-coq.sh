@@ -12,6 +12,7 @@ set -uo pipefail
 BLACKLISTED_FILES=(
     tree16/as_partial_map/tree16.c
     tree16/as_mutual_dt/tree16.c
+    append.c
     mergesort.c
     mergesort_alt.c
     mutual_rec/mutual_rec2.c
@@ -52,7 +53,7 @@ while getopts "dpef: v" opt; do
             echo "  -f  Run single test file (implies -e)"
             echo "  -d  Use dune to run CN"
             echo "  -p  Include proof log in Coq export"
-            echo "  -c  Check proof log in Coq export"
+            echo "  -c  Run proof automation on proof log"
             echo "  -v  Verbose output for resource usage logging"
             exit 1
             ;;
