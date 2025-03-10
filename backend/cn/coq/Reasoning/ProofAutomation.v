@@ -81,6 +81,32 @@ Qed.
      end
  end.
 
+ Ltac2 res_set_remove_many_step () :=
+ match! goal with
+ | [ |- exists field_res,
+        resource_unfold ?iglobal ?res field_res /\
+        ResSet.Equal (set_from_list ?out_res) (ResSet.diff (set_from_list ?in_res) field_res) ] =>
+
+   (* break down goal into components *)
+   let resname   := Fresh.in_goal @res in
+   let inresname := Fresh.in_goal @in_res in
+   let outresname:= Fresh.in_goal @out_res in
+   let clause := { on_hyps := None; on_concl := AllOccurrences } in
+   Std.remember false (Some inresname) (fun _ => in_res) None clause;
+   Std.remember false (Some outresname) (fun _ => out_res) None clause;
+   Std.remember false (Some resname) (fun _ => res) None clause;
+   (* now try to compute field_res from in_res and out_res *)
+   let list_of_constr l := destruct_list (constr:(Resource.t)) l in
+   let in_res_list  := list_of_constr  in_res in
+   let out_res_list := list_of_constr out_res in
+   let diff := const_list_subtract in_res_list out_res_list in
+   if List.is_empty diff then
+    Control.throw (Tactic_failure (Some (Message.of_string "No resource change between the input and output")))
+   else
+    verbose_print "TODO: Compute field_res from in_res and out_res";
+    Control.shelve ()
+end.
+
 Ltac2 prove_unfold_step () :=
   match! goal with
   | [ |- unfold_step ?c ?c' ] =>
@@ -115,8 +141,19 @@ Ltac2 prove_unfold_step () :=
        Control.focus 1 1 (fun () => Std.reflexivity ());
        Control.focus 1 1 (fun () => Std.reflexivity ());
        Control.focus 1 1 (fun () => 
-        verbose_print "TODO: Shelving 1 PredicateRequest premise for Struct";
-        Control.shelve ()
+        let clause := { on_hyps := None; on_concl := AllOccurrences } in
+          Std.unfold [(const_to_const_reference constr:(@ctx_resources_set), AllOccurrences)] clause;
+          Std.cbn 
+          { rStrength := Std.Norm;
+            rBeta := true;
+            rMatch := true;
+            rFix := true;
+            rCofix := true;
+            rZeta := true;
+            rDelta := true;
+            rConst := [const_to_const_reference  constr:(@set_from_list)]
+          } clause ;
+          res_set_remove_many_step ()
        )
   | [ |- log_entry_valid (ResourceInferenceStep _ (PredicateRequest _ ?p _ _) _) ] =>
        (* PredicateRequest case *)
